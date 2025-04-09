@@ -1,62 +1,54 @@
 // functions/tasks.js
 
-let tasks = [
-    { id: 1, name: 'Task 1', status: 'Pending' },
-    { id: 2, name: 'Task 2', status: 'Completed' },
-    { id: 3, name: 'Task 3', status: 'In Progress' },
-  ];
-  
-  // GET: Get all tasks
-  const getTasks = async () => {
-    return {
-      statusCode: 200,
-      body: JSON.stringify(tasks),
-    };
-  };
-  
-  // POST: Add a new task
-  const addTask = async (body) => {
-    const { name, status } = JSON.parse(body);
-    const newTask = {
-      id: tasks.length + 1,
-      name: name || 'New Task',
-      status: status || 'Pending',
-    };
-    tasks.push(newTask);
-    return {
-      statusCode: 201,
-      body: JSON.stringify(newTask),
-    };
-  };
-  
-  exports.handler = async (event, context) => {
-    // Allow cross-origin requests (CORS)
-    const headers = {
-      'Access-Control-Allow-Origin': '*', // Or set a specific domain like 'https://yourfrontend.com'
-      'Access-Control-Allow-Headers': 'Content-Type',
-    };
-  
-    if (event.httpMethod === 'GET') {
-      // Handle GET request to fetch all tasks
-      return {
-        statusCode: 200,
-        headers,
-        body: JSON.stringify(tasks),
-      };
+const express = require('express');
+const serverless = require('serverless-http');
+const mongoose = require('mongoose');
+const cors = require('cors');
+const taskRoutes = require('../routes/taskRoutes');
+
+const app = express();
+
+// CORS Configuration
+const allowedOrigins = ['https://sfrontend-ktzw.vercel.app/']; 
+const corsOptions = {
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'), false);
     }
-  
-    if (event.httpMethod === 'POST') {
-      // Handle POST request to add a new task
-      return addTask(event.body).then((response) => {
-        return { ...response, headers };
-      });
-    }
-  
-    // Return 405 Method Not Allowed if method is not supported
-    return {
-      statusCode: 405,
-      headers,
-      body: JSON.stringify({ message: 'Method Not Allowed' }),
-    };
-  };
-  
+  },
+  methods: ['GET', 'POST', 'PUT', 'DELETE'], 
+  allowedHeaders: ['Content-Type', 'Authorization'],
+};
+
+app.use(cors(corsOptions));  // Apply CORS
+app.use(express.json());  // Use Express's built-in JSON parser
+app.use('/tasks', taskRoutes);  // Use the routes you've already defined
+
+// Health Check Route (Test if backend is working)
+app.get('/health-check', (req, res) => {
+  res.status(200).send(`
+    <html>
+      <head>
+        <title>Backend Status</title>
+      </head>
+      <body>
+        <h1>Backend is running successfully!</h1>
+        <p>API is deployed and working.</p>
+      </body>
+    </html>
+  `);
+});
+
+// MongoDB connection using environment variables
+mongoose
+  .connect(process.env.MONGO_URI, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+  })
+  .then(() => console.log('MongoDB Connected'))
+  .catch((err) => console.error('MongoDB Connection Error:', err));
+
+// Wrap your Express app to make it compatible with Netlify functions
+module.exports.handler = serverless(app);

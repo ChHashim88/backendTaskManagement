@@ -6,7 +6,6 @@ exports.getAllTasks = async (req, res) => {
     const { status } = req.query;
     let tasks;
 
-    // If status is provided and valid, filter by it.
     if (status && (status === 'pending' || status === 'completed')) {
       tasks = await Task.find({ status });
     } else {
